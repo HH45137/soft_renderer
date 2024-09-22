@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define RENDERER_SIZE_WIDTH 512
-#define RENDERER_SIZE_HEIGHT 512
+#define RENDERER_SIZE_WIDTH 1024
+#define RENDERER_SIZE_HEIGHT 1024
 #define RENDERER_CENTER_X RENDERER_SIZE_WIDTH / 2
 #define RENDERER_CENTER_Y RENDERER_SIZE_HEIGHT / 2
 
@@ -73,7 +73,7 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 	return;
 }
 
-void draw_mesh_wireframe(const char* obj_file_path)
+void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
@@ -122,9 +122,10 @@ void draw_mesh_wireframe(const char* obj_file_path)
 			int x2 = (v_pre2.x + 1.) * RENDERER_CENTER_X;
 			int y2 = (v_pre2.y + 1.) * RENDERER_CENTER_Y - RENDERER_CENTER_Y;
 
-			draw_line_dda(x0, y0, x1, y1, 0, 0, 255);
-			draw_line_dda(x2, y2, x1, y1, 255, 0, 0);
-			draw_line_dda(x2, y2, x0, y0, 0, 255, 0);
+			draw_line_dda(x0, y0, x1, y1, r, g, b);
+			draw_line_dda(x2, y2, x1, y1, r, g, b);
+			draw_line_dda(x2, y2, x0, y0, r, g, b);
+			Sleep(2);
 		}
 	}
 }
@@ -142,7 +143,7 @@ int main()
 	draw_line_dda(68, 66, 177, 10, 0, 0, 255);
 	draw_line_dda(68, 66, 14, 10, 255, 0, 255);
 
-	draw_mesh_wireframe("../assets/wukong_mesh.obj");
+	draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
 
 	_getch();
 	closegraph();
