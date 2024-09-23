@@ -23,6 +23,8 @@ void draw_pixel(int x, int y, int r, int g, int b);
 
 void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g, int b);
 
+void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
+
 
 int gen_random(int min, int max)
 {
@@ -73,6 +75,13 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 	return;
 }
 
+void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+{
+	draw_line_dda(v0.x, v0.y, v1.x, v1.y, r, g, b);
+	draw_line_dda(v1.x, v1.y, v2.x, v2.y, r, g, b);
+	draw_line_dda(v2.x, v2.y, v0.x, v0.y, r, g, b);
+}
+
 void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 {
 	tinyobj::attrib_t attrib;
@@ -116,16 +125,13 @@ void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 			index_offset += fv;
 
 			int x0 = (v_pre1.x + 1.) * RENDERER_CENTER_X;
-			int y0 = (v_pre1.y + 1.) * RENDERER_CENTER_Y - RENDERER_CENTER_Y;
+			int y0 = (v_pre1.y + 1.) * RENDERER_CENTER_Y;
 			int x1 = (v_cur.x + 1.) * RENDERER_CENTER_X;
-			int y1 = (v_cur.y + 1.) * RENDERER_CENTER_Y - RENDERER_CENTER_Y;
+			int y1 = (v_cur.y + 1.) * RENDERER_CENTER_Y;
 			int x2 = (v_pre2.x + 1.) * RENDERER_CENTER_X;
-			int y2 = (v_pre2.y + 1.) * RENDERER_CENTER_Y - RENDERER_CENTER_Y;
+			int y2 = (v_pre2.y + 1.) * RENDERER_CENTER_Y;
 
-			draw_line_dda(x0, y0, x1, y1, r, g, b);
-			draw_line_dda(x2, y2, x1, y1, r, g, b);
-			draw_line_dda(x2, y2, x0, y0, r, g, b);
-			Sleep(2);
+			draw_triangle_line_sweeping(glm::vec3(x0, y0, 0.0f), glm::vec3(x1, y1, 0.0f), glm::vec3(x2, y2, 0.0f), r, g, b);
 		}
 	}
 }
