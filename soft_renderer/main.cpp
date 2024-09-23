@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define RENDERER_SIZE_WIDTH 1024
-#define RENDERER_SIZE_HEIGHT 1024
+#define RENDERER_SIZE_WIDTH 512
+#define RENDERER_SIZE_HEIGHT 512
 #define RENDERER_CENTER_X RENDERER_SIZE_WIDTH / 2
 #define RENDERER_CENTER_Y RENDERER_SIZE_HEIGHT / 2
 
@@ -24,6 +24,8 @@ void draw_pixel(int x, int y, int r, int g, int b);
 void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g, int b);
 
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
+
+void draw_triangle_fill(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
 
 int gen_random(int min, int max)
@@ -136,6 +138,17 @@ void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 	}
 }
 
+void draw_triangle_fill(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+{
+	draw_triangle_line_sweeping(v0, v1, v2, r, g, b);
+
+	if (v0.x > v1.x) { std::swap(v0, v1); }
+	if (v0.x > v2.x) { std::swap(v0, v2); }
+	if (v1.x > v2.x) { std::swap(v1, v2); }
+
+
+}
+
 int main()
 {
 	initgraph(RENDERER_SIZE_WIDTH, RENDERER_SIZE_HEIGHT);
@@ -144,12 +157,11 @@ int main()
 	setorigin(0, RENDERER_SIZE_HEIGHT);
 	setaspectratio(1, -1);
 
-	draw_line_dda(68, 66, 123, 300, 255, 0, 0);
-	draw_line_dda(68, 66, 14, 300, 0, 255, 0);
-	draw_line_dda(68, 66, 177, 10, 0, 0, 255);
-	draw_line_dda(68, 66, 14, 10, 255, 0, 255);
+	//draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
 
-	draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
+	draw_triangle_fill(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
+	draw_triangle_fill(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
+	draw_triangle_fill(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
 
 	_getch();
 	closegraph();
