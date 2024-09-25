@@ -32,6 +32,8 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
+void draw_triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
+
 
 int gen_random(int min, int max)
 {
@@ -106,6 +108,44 @@ void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r
 		}
 	}
 
+}
+
+glm::vec3 barycentric(glm::ivec2* pts, glm::ivec2 P)
+{
+	glm::fvec3 u = glm::cross(
+		glm::fvec3(pts[2][0] - pts[0][0], pts[1][0] - pts[0][0], pts[0][0] - P[0]),
+		glm::fvec3(pts[2][1] - pts[0][1], pts[1][1] - pts[0][1], pts[0][1] - P[1])
+	);
+
+	if (std::abs(u.z) < 1) return glm::fvec3(-1, 1, 1);
+
+	return glm::fvec3(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+}
+
+void draw_triangle_barycentric_coord(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+{
+	glm::ivec2 points[3] = { {v0.x,v0.y},{v1.x,v1.y},{v2.x,v2.y} };
+
+	glm::ivec2 bboxmin{ RENDERER_SIZE_WIDTH - 1,RENDERER_SIZE_HEIGHT - 1 };
+	glm::ivec2 bboxmax{ 0,0 };
+	glm::ivec2 clamp{ RENDERER_SIZE_WIDTH - 1,RENDERER_SIZE_HEIGHT - 1 };
+
+	for (int i = 0; i < 3; i++)
+	{
+		bboxmin.x = glm::max<int>(0, glm::min<int>(bboxmin.x, points[i].x));
+		bboxmin.y = glm::max<int>(0, glm::min<int>(bboxmin.y, points[i].y));
+
+		bboxmax.x = glm::min<int>(clamp.x, glm::max<int>(bboxmax.x, points[i].x));
+		bboxmax.y = glm::min<int>(clamp.y, glm::max<int>(bboxmax.y, points[i].y));
+	}
+	glm::ivec2 P{};
+	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
+		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
+			glm::fvec3 bc_screen = barycentric(points, P);
+			if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) { continue; }
+			draw_pixel(P.x, P.y, r, g, b);
+		}
+	}
 }
 
 void draw_mesh(const char* obj_file_path, int r, int g, int b)
@@ -191,7 +231,8 @@ void draw_mesh(const char* obj_file_path, int r, int g, int b)
 					}
 				}
 
-				draw_triangle_line_sweeping(v_screen[0], v_screen[1], v_screen[2], r, g, b);
+				//draw_triangle_line_sweeping(v_screen[0], v_screen[1], v_screen[2], r, g, b);
+				draw_triangle_barycentric_coord(v_screen[0], v_screen[1], v_screen[2], r, g, b);
 			}
 		}
 	}
@@ -208,9 +249,9 @@ int main()
 
 	draw_mesh("../assets/wukong_mesh.obj", 255, 255, 255);
 
-	draw_triangle_line_sweeping(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
-	draw_triangle_line_sweeping(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
-	draw_triangle_line_sweeping(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
+	draw_triangle_barycentric_coord(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
+	draw_triangle_barycentric_coord(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
+	draw_triangle_barycentric_coord(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
 
 	_getch();
 	closegraph();
