@@ -79,9 +79,27 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
 {
-	draw_line_dda(v0.x, v0.y, v1.x, v1.y, r, g, b);
-	draw_line_dda(v1.x, v1.y, v2.x, v2.y, r, g, b);
-	draw_line_dda(v2.x, v2.y, v0.x, v0.y, r, g, b);
+	if (v0.y > v1.y) { std::swap(v0, v1); }
+	if (v0.y > v2.y) { std::swap(v0, v2); }
+	if (v1.y > v2.y) { std::swap(v1, v2); }
+	int total_height = v2.y - v0.y;
+
+	for (int i = 0; i < total_height; i++) {
+		for (int y = v0.y; y < v1.y; y++) {
+			bool second_half = i > v1.y - v0.y || v1.y == v0.y;
+			int segment_height = second_half ? v2.y - v1.y : v1.y - v0.y;
+			float alpha = (float)i / total_height;
+			float beta = (float)(i - (second_half ? v1.y - v0.y : 0)) / segment_height;
+			glm::ivec2 A = v0 + (v2 - v0) * alpha;
+			glm::ivec2 B = second_half ? v1 + (v2 - v1) * beta : v0 + (v1 - v0) * beta;
+			if (A.x > B.x) { std::swap(A, B); }
+			for (int j = A.x; j <= B.x; j++)
+			{
+				draw_pixel(j, v0.y + i, r, g, b);
+			}
+		}
+	}
+
 }
 
 void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
@@ -138,16 +156,6 @@ void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 	}
 }
 
-void draw_triangle_fill(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
-{
-	draw_triangle_line_sweeping(v0, v1, v2, r, g, b);
-
-	if (v0.x > v1.x) { std::swap(v0, v1); }
-	if (v0.x > v2.x) { std::swap(v0, v2); }
-	if (v1.x > v2.x) { std::swap(v1, v2); }
-
-
-}
 
 int main()
 {
@@ -157,11 +165,11 @@ int main()
 	setorigin(0, RENDERER_SIZE_HEIGHT);
 	setaspectratio(1, -1);
 
-	//draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
+	draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
 
-	draw_triangle_fill(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
-	draw_triangle_fill(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
-	draw_triangle_fill(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
+	draw_triangle_line_sweeping(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
+	draw_triangle_line_sweeping(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
+	draw_triangle_line_sweeping(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
 
 	_getch();
 	closegraph();
