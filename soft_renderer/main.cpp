@@ -104,54 +104,89 @@ void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r
 
 void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
 {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
+	glm::vec3 light_dir(0, 0, -1);
 
-	std::string err;
-
-	bool result = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, obj_file_path);
-
-	if (!err.empty())
 	{
-		std::cout << err << "\n";
-	}
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
 
-	if (!result)
-	{
-		exit(1);
-	}
+		std::string err;
 
-	for (size_t s = 0; s < shapes.size(); s++)
-	{
-		size_t index_offset = 0;
-		glm::vec3 v_cur{}, v_pre1{}, v_pre2{};
-		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
+		bool result = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, obj_file_path);
+
+		if (!err.empty())
 		{
-			size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+			std::cout << err << "\n";
+		}
 
-			for (size_t v = 0; v < fv; v++)
+		if (!result)
+		{
+			exit(1);
+		}
+
+		for (size_t s = 0; s < shapes.size(); s++)
+		{
+			size_t index_offset = 0;
+			glm::vec3 v_cur{}, v_pre1{}, v_pre2{};
+			for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
 			{
-				tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+				size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
 
-				tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
-				tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
-				tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+				for (size_t v = 0; v < fv; v++)
+				{
+					tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
 
-				v_pre2 = v_pre1;
-				v_pre1 = v_cur;
-				v_cur = { vx,vy,vz };
+					tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+					tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+					tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+
+					v_pre2 = v_pre1;
+					v_pre1 = v_cur;
+					v_cur = { vx,vy,vz };
+				}
+				index_offset += fv;
+
+				// 每个三角形的每个顶点的屏幕空间坐标
+				std::vector<glm::vec3> v_screen{
+					glm::ivec3 {
+						(v_pre1.x + 1.) * RENDERER_CENTER_X,
+						(v_pre1.y + 1.) * RENDERER_CENTER_Y,
+						(v_pre1.z + 1.) * RENDERER_CENTER_Y
+					},
+					glm::ivec3 {
+						(v_cur.x + 1.) * RENDERER_CENTER_X,
+						(v_cur.y + 1.) * RENDERER_CENTER_Y,
+						(v_cur.z + 1.) * RENDERER_CENTER_Y
+					},
+					glm::ivec3 {
+						(v_pre2.x + 1.) * RENDERER_CENTER_X,
+						(v_pre2.y + 1.) * RENDERER_CENTER_Y,
+						(v_pre2.z + 1.) * RENDERER_CENTER_Y
+					}
+				};
+
+				// 每个三角形的每个顶点的世界空间坐标
+				std::vector<glm::vec3> v_world{
+					v_pre1,
+					v_cur,
+					v_pre2
+				};
+
+				// 计算着色
+				{
+					glm::vec3 normal = glm::cross(v_world[2] - v_world[0], (v_world[1] - v_world[0]));
+					normal = glm::normalize(normal);
+					float intensity = glm::dot(normal, light_dir);
+					if (intensity > 0) {
+						r = intensity * 255;
+						g = intensity * 255;
+						b = intensity * 255;
+					}
+				}
+
+				draw_triangle_line_sweeping(v_screen[0], v_screen[1], v_screen[2], r, g, b);
 			}
-			index_offset += fv;
-
-			int x0 = (v_pre1.x + 1.) * RENDERER_CENTER_X;
-			int y0 = (v_pre1.y + 1.) * RENDERER_CENTER_Y;
-			int x1 = (v_cur.x + 1.) * RENDERER_CENTER_X;
-			int y1 = (v_cur.y + 1.) * RENDERER_CENTER_Y;
-			int x2 = (v_pre2.x + 1.) * RENDERER_CENTER_X;
-			int y2 = (v_pre2.y + 1.) * RENDERER_CENTER_Y;
-
-			draw_triangle_line_sweeping(glm::vec3(x0, y0, 0.0f), glm::vec3(x1, y1, 0.0f), glm::vec3(x2, y2, 0.0f), r, g, b);
 		}
 	}
 }
