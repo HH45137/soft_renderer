@@ -32,10 +32,6 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
-void draw_triangle_fill(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
-
-void gen_zbuffer_pixel(glm::ivec2 p0, glm::ivec2 p1);
-
 
 int gen_random(int min, int max)
 {
