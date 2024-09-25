@@ -10,15 +10,15 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define RENDERER_SIZE_WIDTH 512
-#define RENDERER_SIZE_HEIGHT 512
+#define RENDERER_SIZE_WIDTH 1024
+#define RENDERER_SIZE_HEIGHT 1024
 #define RENDERER_CENTER_X RENDERER_SIZE_WIDTH / 2
 #define RENDERER_CENTER_Y RENDERER_SIZE_HEIGHT / 2
 
 
 struct global_var_s
 {
-	int32_t* zbuffer = nullptr;
+	float* zbuffer = nullptr;
 } global_var;
 
 
@@ -148,9 +148,55 @@ void draw_triangle_barycentric_coord(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, i
 	}
 }
 
+void draw_triangle_barycentric_coord_depth(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+{
+	glm::ivec2 points[3] = { {v0.x,v0.y},{v1.x,v1.y},{v2.x,v2.y} };
+
+	glm::ivec2 bboxmin{ RENDERER_SIZE_WIDTH - 1,RENDERER_SIZE_HEIGHT - 1 };
+	glm::ivec2 bboxmax{ 0,0 };
+	glm::ivec2 clamp{ RENDERER_SIZE_WIDTH - 1,RENDERER_SIZE_HEIGHT - 1 };
+
+	for (int i = 0; i < 3; i++)
+	{
+		bboxmin.x = glm::max<int>(0, glm::min<int>(bboxmin.x, points[i].x));
+		bboxmin.y = glm::max<int>(0, glm::min<int>(bboxmin.y, points[i].y));
+
+		bboxmax.x = glm::min<int>(clamp.x, glm::max<int>(bboxmax.x, points[i].x));
+		bboxmax.y = glm::min<int>(clamp.y, glm::max<int>(bboxmax.y, points[i].y));
+	}
+	glm::vec3 P{};
+	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
+		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
+			glm::fvec3 bc_screen = barycentric(points, P);
+			if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) { continue; }
+
+			// Generate Z-Buffer
+			{
+				if (global_var.zbuffer == nullptr)
+				{
+					global_var.zbuffer = new float[RENDERER_SIZE_WIDTH * RENDERER_SIZE_HEIGHT] {1.0f};
+				}
+
+				float z = glm::normalize(v0).z;
+				int idx = P.x + P.y * RENDERER_SIZE_WIDTH;
+				if (global_var.zbuffer[idx] < z)
+				{
+					global_var.zbuffer[idx] = z;
+					draw_pixel(P.x, P.y, r, g, b);
+				}
+				r = global_var.zbuffer[idx] * 255;
+				g = global_var.zbuffer[idx] * 255;
+				b = global_var.zbuffer[idx] * 255;
+				//draw_pixel(P.x, P.y, r, g, b);
+			}
+
+		}
+	}
+}
+
 void draw_mesh(const char* obj_file_path, int r, int g, int b)
 {
-	glm::vec3 light_dir(0, 0, -1);
+	glm::vec3 light_dir(-1, 0, -1);
 
 	{
 		tinyobj::attrib_t attrib;
@@ -232,7 +278,8 @@ void draw_mesh(const char* obj_file_path, int r, int g, int b)
 				}
 
 				//draw_triangle_line_sweeping(v_screen[0], v_screen[1], v_screen[2], r, g, b);
-				draw_triangle_barycentric_coord(v_screen[0], v_screen[1], v_screen[2], r, g, b);
+				//draw_triangle_barycentric_coord(v_screen[0], v_screen[1], v_screen[2], r, g, b);
+				draw_triangle_barycentric_coord_depth(v_screen[0], v_screen[1], v_screen[2], r, g, b);
 			}
 		}
 	}
@@ -247,7 +294,8 @@ int main()
 	setorigin(0, RENDERER_SIZE_HEIGHT);
 	setaspectratio(1, -1);
 
-	draw_mesh("../assets/wukong_mesh.obj", 255, 255, 255);
+	//draw_mesh("../assets/wukong_mesh.obj", 255, 0, 0);
+	draw_mesh("../assets/african_head.obj", 255, 255, 255);
 
 	draw_triangle_barycentric_coord(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
 	draw_triangle_barycentric_coord(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
