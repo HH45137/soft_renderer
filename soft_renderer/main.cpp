@@ -15,6 +15,13 @@
 #define RENDERER_CENTER_X RENDERER_SIZE_WIDTH / 2
 #define RENDERER_CENTER_Y RENDERER_SIZE_HEIGHT / 2
 
+
+struct global_var_s
+{
+	int32_t* zbuffer = nullptr;
+} global_var;
+
+
 int gen_random(int min, int max);
 
 int gen_random(int min, int max, int seed);
@@ -26,6 +33,8 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
 void draw_triangle_fill(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
+
+void gen_zbuffer_pixel(glm::ivec2 p0, glm::ivec2 p1);
 
 
 int gen_random(int min, int max)
@@ -95,14 +104,15 @@ void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r
 			if (A.x > B.x) { std::swap(A, B); }
 			for (int j = A.x; j <= B.x; j++)
 			{
-				draw_pixel(j, v0.y + i, r, g, b);
+				int final_x = j, final_y = v0.y + i;
+				draw_pixel(final_x, final_y, r, g, b);
 			}
 		}
 	}
 
 }
 
-void draw_mesh_wireframe(const char* obj_file_path, int r, int g, int b)
+void draw_mesh(const char* obj_file_path, int r, int g, int b)
 {
 	glm::vec3 light_dir(0, 0, -1);
 
@@ -200,7 +210,7 @@ int main()
 	setorigin(0, RENDERER_SIZE_HEIGHT);
 	setaspectratio(1, -1);
 
-	draw_mesh_wireframe("../assets/wukong_mesh.obj", 255, 255, 255);
+	draw_mesh("../assets/wukong_mesh.obj", 255, 255, 255);
 
 	draw_triangle_line_sweeping(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
 	draw_triangle_line_sweeping(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
