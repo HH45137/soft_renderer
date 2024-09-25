@@ -9,6 +9,9 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <limits>
+
+#undef max
 
 #define RENDERER_SIZE_WIDTH 1024
 #define RENDERER_SIZE_HEIGHT 1024
@@ -32,8 +35,13 @@ void draw_line_dda(int x_start, int y_start, int x_end, int y_end, int r, int g,
 
 void draw_triangle_line_sweeping(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
-void draw_triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
+void draw_triangle_barycentric_coord(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b);
 
+
+float scale_to_size(float v, float min, float max)
+{
+	return (v - min) * max / (max - min);
+}
 
 int gen_random(int min, int max)
 {
@@ -122,6 +130,18 @@ glm::vec3 barycentric(glm::ivec2* pts, glm::ivec2 P)
 	return glm::fvec3(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
 }
 
+glm::vec3 barycentric(glm::fvec2 v0, glm::fvec2 v1, glm::fvec2 v2, glm::ivec2 P)
+{
+	glm::fvec3 u = glm::cross(
+		glm::fvec3(v2[0] - v0[0], v1[0] - v0[0], v0[0] - P[0]),
+		glm::fvec3(v2[1] - v0[1], v1[1] - v0[1], v0[1] - P[1])
+	);
+
+	if (std::abs(u.z) < 1) return glm::fvec3(-1, 1, 1);
+
+	return glm::fvec3(1.f - (u.x + u.y) / u.z, u.y / u.z, u.x / u.z);
+}
+
 void draw_triangle_barycentric_coord(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
 {
 	glm::ivec2 points[3] = { {v0.x,v0.y},{v1.x,v1.y},{v2.x,v2.y} };
@@ -148,7 +168,43 @@ void draw_triangle_barycentric_coord(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, i
 	}
 }
 
-void draw_triangle_barycentric_coord_depth(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+void draw_triangle_barycentric_coord_zbuffer(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, int r, int g, int b)
+{
+	glm::fvec2 points[3] = { {v0.x,v0.y},{v1.x,v1.y},{v2.x,v2.y} };
+
+	glm::fvec2 bboxmin(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+	glm::fvec2 bboxmax{ -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+	glm::fvec2 clamp{ RENDERER_SIZE_WIDTH - 1,RENDERER_SIZE_HEIGHT - 1 };
+
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 2; j++)
+		{
+			bboxmin[j] = glm::max<float>(0, glm::min<float>(bboxmin[j], points[i][j]));
+			bboxmax[j] = glm::min<float>(clamp.y, glm::max<float>(bboxmax[j], points[i][j]));
+		}
+	}
+	glm::fvec3 P{};
+	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) {
+		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
+			glm::fvec3 bc_screen = barycentric(v0, v1, v2, P);
+			if (bc_screen.x < 0 || bc_screen.y < 0 || bc_screen.z < 0) { continue; }
+
+			P.z = 0;
+			P.z += v0.z * bc_screen[0];
+			P.z += v1.z * bc_screen[1];
+			P.z += v2.z * bc_screen[2];
+
+			int idx = P.x + P.y * RENDERER_SIZE_WIDTH;
+			if (global_var.zbuffer[idx] > P.z)
+			{
+				draw_pixel(P.x, P.y, r, g, b);
+			}
+		}
+	}
+}
+
+void addtion_triangle_to_zbuffer(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2)
 {
 	glm::ivec2 points[3] = { {v0.x,v0.y},{v1.x,v1.y},{v2.x,v2.y} };
 
@@ -182,21 +238,15 @@ void draw_triangle_barycentric_coord_depth(glm::vec3 v0, glm::vec3 v1, glm::vec3
 				if (global_var.zbuffer[idx] < z)
 				{
 					global_var.zbuffer[idx] = z;
-					draw_pixel(P.x, P.y, r, g, b);
 				}
-				r = global_var.zbuffer[idx] * 255;
-				g = global_var.zbuffer[idx] * 255;
-				b = global_var.zbuffer[idx] * 255;
-				//draw_pixel(P.x, P.y, r, g, b);
 			}
-
 		}
 	}
 }
 
 void draw_mesh(const char* obj_file_path, int r, int g, int b)
 {
-	glm::vec3 light_dir(-1, 0, -1);
+	glm::vec3 light_dir(0, 0, -1);
 
 	{
 		tinyobj::attrib_t attrib;
@@ -265,21 +315,23 @@ void draw_mesh(const char* obj_file_path, int r, int g, int b)
 					v_pre2
 				};
 
+				//Z-Buffer
+				addtion_triangle_to_zbuffer(v_screen[0], v_screen[1], v_screen[2]);
+
 				// 计算着色
 				{
 					glm::vec3 normal = glm::cross(v_world[2] - v_world[0], (v_world[1] - v_world[0]));
 					normal = glm::normalize(normal);
 					float intensity = glm::dot(normal, light_dir);
 					if (intensity > 0) {
-						r = intensity * 255;
-						g = intensity * 255;
-						b = intensity * 255;
+						r = scale_to_size(r * intensity, 64, 255);
+						g = scale_to_size(g * intensity, 64, 255);
+						b = scale_to_size(b * intensity, 64, 255);
 					}
 				}
 
 				//draw_triangle_line_sweeping(v_screen[0], v_screen[1], v_screen[2], r, g, b);
-				//draw_triangle_barycentric_coord(v_screen[0], v_screen[1], v_screen[2], r, g, b);
-				draw_triangle_barycentric_coord_depth(v_screen[0], v_screen[1], v_screen[2], r, g, b);
+				draw_triangle_barycentric_coord_zbuffer(v_screen[0], v_screen[1], v_screen[2], r, g, b);
 			}
 		}
 	}
@@ -294,12 +346,33 @@ int main()
 	setorigin(0, RENDERER_SIZE_HEIGHT);
 	setaspectratio(1, -1);
 
+	// Fill wite
+	//for (int y = 0; y < RENDERER_SIZE_HEIGHT; y++)
+	//{
+	//	for (int x = 0; x < RENDERER_SIZE_WIDTH; x++)
+	//	{
+	//		draw_pixel(x, y, 255, 255, 255);
+	//	}
+	//}
+
 	//draw_mesh("../assets/wukong_mesh.obj", 255, 0, 0);
-	draw_mesh("../assets/african_head.obj", 255, 255, 255);
+	draw_mesh("../assets/african_head.obj", 255, 0, 255);
 
 	draw_triangle_barycentric_coord(glm::vec3(10, 70, 0), glm::vec3(50, 160, 0), glm::vec3(70, 90, 0), 255, 0, 0);
 	draw_triangle_barycentric_coord(glm::vec3(180, 50, 0), glm::vec3(150, 1, 0), glm::vec3(70, 180, 0), 0, 255, 0);
 	draw_triangle_barycentric_coord(glm::vec3(180, 150, 0), glm::vec3(120, 160, 0), glm::vec3(130, 180, 0), 255, 0, 255);
+
+	// Draw Z-Buffer
+	for (int y = 0; y < RENDERER_SIZE_HEIGHT; y++)
+	{
+		for (int x = 0; x < RENDERER_SIZE_WIDTH; x++)
+		{
+			int z_index = x + y * RENDERER_SIZE_WIDTH;
+			float z = global_var.zbuffer[z_index];
+			z *= 255;
+			draw_pixel(x, y, z, z, z);
+		}
+	}
 
 	_getch();
 	closegraph();
